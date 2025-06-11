@@ -1,59 +1,55 @@
 import requests
 from bs4 import BeautifulSoup
 
-def scrap_glassdoor_reviews(url, nb_pages=7):
-    avis_total = []
+def scrap_glassdoor_reviews(url, pages=1):
+    reviews = []
     headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/137.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
     }
 
-    for page in range(1, nb_pages + 1):
+    for page in range(1, pages + 1):
+        # Construction de l'URL de la page suivante
         if page == 1:
             page_url = url
         else:
-            page_url = url.replace('.htm', f'_P{page}.htm?filter.iso3Language=fra')
-        print(f"Scraping page: {page_url}")
+            # Si l'URL contient déjà '?', gérer les paramètres
+            if "?" in url:
+                page_url = url.split("?")[0] + f"_P{page}.htm?" + url.split("?")[1]
+            else:
+                page_url = url.replace('.htm', f'_P{page}.htm')
 
+        print(f"==== [Scraping] URL: {page_url}")
         response = requests.get(page_url, headers=headers)
+        print("========= DEBUT HTML =========")
+        print(response.text[:1000])   # On log uniquement le début
+        print("========== FIN HTML ==========")
+
         if response.status_code != 200:
             print(f"Erreur de chargement de la page {page_url} (code {response.status_code})")
             continue
 
-        soup = BeautifulSoup(response.text, "html.parser")
-        avis_divs = soup.find_all("div", {"data-test": "review-details-container"})
+        soup = BeautifulSoup(response.text, 'html.parser')
+        review_blocks = soup.find_all("div", {"data-test": "review-details-container"})
+        print(f"Trouvé {len(review_blocks)} avis sur la page {page}")
 
-        for avis in avis_divs:
-            try:
-                note = avis.select_one("[data-test='review-rating-label']")
-                note = note.get_text(strip=True) if note else ""
-                titre = avis.select_one("[data-test='review-details-title']")
-                titre = titre.get_text(strip=True) if titre else ""
-                date = avis.select_one(".timestamp_reviewDate__dsF9n")
-                date = date.get_text(strip=True) if date else ""
-                poste = avis.select_one(".review-avatar_avatarLabel__P15ey")
-                poste = poste.get_text(strip=True) if poste else ""
-                ville = ""
-                ville_span = avis.select_one(".text-with-icon_LabelContainer__xbtB8")
-                if ville_span:
-                    ville = ville_span.get_text(strip=True)
-                else:
-                    ville = ""
-                avantages = avis.select_one("span[data-test='review-text-PROS']")
-                avantages = avantages.get_text(strip=True) if avantages else ""
-                inconvenients = avis.select_one("span[data-test='review-text-CONS']")
-                inconvenients = inconvenients.get_text(strip=True) if inconvenients else ""
+        for block in review_blocks:
+            titre = block.find("span", {"lang": True})
+            titre = titre.text.strip() if titre else ""
+            note = block.find("span", {"data-test": "review-rating-label"})
+            note = note.text.strip() if note else ""
+            date = block.find("span", class_="timestamp_reviewDate__dsF9n")
+            date = date.text.strip() if date else ""
+            avantages = block.find("span", {"data-test": "review-text-PROS"})
+            avantages = avantages.text.strip() if avantages else ""
+            inconvenients = block.find("span", {"data-test": "review-text-CONS"})
+            inconvenients = inconvenients.text.strip() if inconvenients else ""
 
-                avis_total.append({
-                    "note": note,
-                    "titre": titre,
-                    "date": date,
-                    "poste": poste,
-                    "ville": ville,
-                    "avantages": avantages,
-                    "inconvenients": inconvenients,
-                })
-            except Exception as e:
-                print("Erreur sur un avis :", e)
-    return avis_total
+            reviews.append({
+                "titre": titre,
+                "note": note,
+                "date": date,
+                "avantages": avantages,
+                "inconvenients": inconvenients,
+            })
+
+    return reviews
