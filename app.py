@@ -2,27 +2,39 @@ import streamlit as st
 import pandas as pd
 from scraper import scrap_glassdoor_reviews
 
-st.title("🔍 Glassdoor Reviews Scraper (BeautifulSoup only)")
-st.markdown("**Scrapez facilement tous les avis d’une société Glassdoor (ex : WeFiiT) sans login ni Selenium.**")
+st.set_page_config(page_title="Glassdoor Scraper", layout="centered")
+st.title("🔍 Glassdoor Reviews Scraper (BeautifulSoup)")
 
+st.markdown(
+    """
+    Cette application permet de récupérer les avis Glassdoor **publiques** d'une entreprise (pas besoin de compte).
+    
+    1. **Collez l'URL** de la page d'avis Glassdoor (ex: https://www.glassdoor.fr/Avis/WeFiiT-Avis-E3310403.htm)
+    2. **Choisissez le nombre de pages à récupérer**
+    3. Cliquez sur **Lancer le scraping** et téléchargez le CSV !
+    """
+)
+
+# Saisie de l'URL
 url = st.text_input(
-    "Collez l’URL de la page Glassdoor des avis à scraper :",
+    "URL de la page Glassdoor des avis :",
     value="https://www.glassdoor.fr/Avis/WeFiiT-Avis-E3310403.htm"
 )
 
-nb_pages = st.number_input("Nombre de pages à scraper :", min_value=1, max_value=15, value=7)
+pages = st.number_input(
+    "Nombre de pages à scraper :", min_value=1, max_value=20, value=3, step=1
+)
 
 if st.button("Lancer le scraping"):
-    with st.spinner("Scraping en cours..."):
-        avis = scrap_glassdoor_reviews(url, nb_pages)
-    if avis:
-        df = pd.DataFrame(avis)
-        st.success(f"{len(df)} avis récupérés ✅")
+    st.info("Scraping en cours... Cela peut prendre quelques secondes.")
+    data = scrap_glassdoor_reviews(url, int(pages))
+    if data and len(data) > 0:
+        df = pd.DataFrame(data)
+        st.success(f"{len(df)} avis récupérés ! Aperçu :")
         st.dataframe(df)
         csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("Télécharger CSV", csv, "avis_glassdoor.csv")
+        st.download_button("Télécharger en CSV", csv, "avis_glassdoor.csv", "text/csv")
     else:
-        st.error("❌ Aucune donnée récupérée. Essayez une autre URL ou attendez un peu (Glassdoor limite parfois).")
-
-st.markdown("---")
-st.info("Aucune authentification n'est nécessaire tant que les avis sont accessibles sans login Glassdoor.")
+        st.error("❌ Aucune donnée récupérée. Vérifiez l'URL ou réessayez plus tard.")
+else:
+    st.write("Veuillez entrer l'URL d'une page d'avis Glassdoor et cliquer sur le bouton.")
